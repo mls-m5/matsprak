@@ -1,0 +1,39 @@
+
+
+int x, y
+int r
+
+// Det här är en kommentar
+// Det här är också den första funktionen som initierar klassen
+function init()
+	x = 1
+	y = 3
+end function
+
+
+function destroy()
+	
+end function
+
+
+function init(ref float angle) //auto by default
+	x = sin(angle) //Will force include cmath
+	y = cos(angle)
+end function
+
+
+
+function printContent()
+	printf("hej\n")
+	
+	for int i = 0 to 10
+		println("hej")
+	loop
+	
+	println("hej då")
+end function
+
+
+static function getCount()
+	return int ( x + y )
+end function
