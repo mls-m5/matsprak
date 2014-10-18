@@ -26,7 +26,7 @@ TEST_CASE("basic test"){
 			"end function \n");
 
 	ast.load(ss);
-	ast.save(cout);
+	ast.save(cout, Ast::Source);
 
 	ASSERT_EQ(ast.type, Ast::FunctionDefinition);
 	ASSERT_EQ(ast.name, "apa");
@@ -54,7 +54,7 @@ TEST_CASE("find defined functions"){
 	ASSERT(block->findFunction("bepa"), "function bepa undefined");
 	ASSERT(!block->findFunction("cepa"), "function cepa should not be defined");
 
-	block->save(cout);
+	block->save(cout, Ast::Source);
 
 	if (block){
 		delete block;
@@ -77,6 +77,29 @@ TEST_CASE("command type test"){
 	Ast ast2;
 	ast2.load(ss2);
 	ASSERT_EQ(ast2.type, Ast::VariableDeclaration);
+
+	return 0;
+}
+
+TEST_CASE("load class folder"){
+	Ast::LoadClassFolder(".");
+	auto ret = Ast::FindType("TestKlass");
+
+	ASSERT(ret, "type not found?");
+
+	return 0;
+}
+
+TEST_CASE("evaluate expression"){
+	AstContentBlock ast(0);
+	istringstream ss("int x\n"
+			"int y\n"
+			"int z\n"
+			"z = x + y * z ^ 2\n");
+	ast.load(ss);
+
+	ASSERT_EQ(ast.commands.size(), 4);
+	ASSERT_EQ(ast.commands[3]->type, Ast::Assignment);
 
 	return 0;
 }

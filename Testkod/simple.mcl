@@ -1,0 +1,27 @@
+
+int a = 0;
+int b = 3;
+TestKlass klass;
+
+function init()
+	call prutt
+end function
+
+function destroy()
+	call bepa
+end function
+
+
+function prutt()
+
+end function
+
+function on_load()
+	call prutt
+end function
+	
+function bepa
+	int c
+	
+	a = b + c
+end function

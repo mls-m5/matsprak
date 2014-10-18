@@ -8,6 +8,11 @@
 #include "ast.h"
 #include "tokenizer.h"
 #include <list>
+#include <fstream>
+#include <sstream>
+#include <dirent.h>
+
+#include "AstExpression.h"
 #define DEBUG if(1)
 
 using namespace std;
@@ -38,6 +43,10 @@ void intent(int level){
 }
 
 Ast::~Ast() {
+	if (content){
+		delete content;
+		content = 0;
+	}
 }
 
 void throwError(std::string description){
@@ -68,12 +77,12 @@ bool Ast::load(std::istream& stream) {
 		return false;
 	}
 	else if (ret == "function"){
-		tokenizer.skipSpace(stream);
+		tokenizer.SkipSpace(stream);
 		ret = tokenizer.getNextToken(stream);
 		tmp = findType(ret);
 		if (tmp){
 			DEBUG cout << "type " << tmp->name << endl;
-			tokenizer.skipSpace(stream);
+			tokenizer.SkipSpace(stream);
 			ret = tokenizer.getNextToken(stream);
 			dataTypePointer = tmp;
 		}
@@ -102,31 +111,53 @@ bool Ast::load(std::istream& stream) {
 				ret = tokenizer.getNextToken(stream);
 			}
 
-			tokenizer.skipSpace(stream, true);
+			tokenizer.SkipSpace(stream, true);
 		}
 
 		auto contentBlock = new AstContentFunction(this);
 		contentBlock->blockName = "function";
 		contentBlock->arguments = arguments;
 		contentBlock->load(stream);
-		content = contentBlock;
+		setContent(contentBlock);
 	}
 	else if (ret == "call"){
-		tokenizer.skipSpace(stream);
+		tokenizer.SkipSpace(stream);
 		ret = tokenizer.getNextToken(stream);
-		cout << "function call " << ret << endl;
+		DEBUG cout << "function call " << ret << endl;
 		auto functionAst = findFunction(ret);
 		dataTypePointer = functionAst;
-		tokenizer.skipSpace(stream, true);
+		tokenizer.SkipSpace(stream, true);
 		type = FunctionCall;
 	}
-	else if ((tmp = findType(ret))){
-		tokenizer.skipSpace(stream);
+	else if (ret == "using"){
+		tokenizer.SkipSpace(stream);
+		type = UsingStatement;
 		ret = tokenizer.getNextToken(stream);
-		cout << "variable definition " << ret << endl;
+		DEBUG cout << "using-statement " << ret << endl;
+		dataTypePointer = findType(ret);
+		if (dataTypePointer == 0){
+			throwError("type " + ret + " not found");
+		}
+
+	}
+	else if ((tmp = findType(ret))){
+		tokenizer.SkipSpace(stream);
+		ret = tokenizer.getNextToken(stream);
+		DEBUG cout << "variable definition " << ret << endl;
 		name = ret;
 		type = VariableDeclaration;
 		dataTypePointer = tmp;
+		tokenizer.SkipSpace(stream, true);
+	}
+	else if ((tmp = findVariable(ret))){
+		type = Assignment;
+		ret = Tokenizer::GetNextTokenAfterSpace(stream);
+		if (ret == "="){
+			setContent(new AstExpression(this));
+			content->evaluate(stream);
+		}
+		DEBUG cout << "assignment " << ret << endl;
+
 	}
 	else {
 		//Copy verbatim or evaluate expression
@@ -145,7 +176,7 @@ bool AstContentBlock::load(std::istream& stream) {
 	return true;
 }
 
-void Ast::save(std::ostream& stream, int level) {
+void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 	switch (type) {
 		case VariableDeclaration:
 			if (!dataTypePointer){
@@ -153,7 +184,7 @@ void Ast::save(std::ostream& stream, int level) {
 				return;
 			}
 			intent(level);
-			stream << dataTypePointer->name << " " << name << std::endl;
+			stream << dataTypePointer->name << " " << name << ";" << std::endl;
 			break;
 		case FunctionDefinition:
 		{
@@ -161,20 +192,46 @@ void Ast::save(std::ostream& stream, int level) {
 				cout << "error datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
 				return;
 			}
-			intent(level);
 			std::string arguments;
 			auto functionContent = dynamic_cast<AstContentFunction*> (content);
 			if (functionContent){
 				arguments = functionContent->arguments;
 			}
-			stream << dataTypePointer->name << " " << name << "(" << arguments << "){" << std::endl;
-
-			if (content){
-				content->save(stream, level);
+			std::string displayName = name;
+			bool suppressReturnType = false;
+			if (name == "destroy"){
+				if (parent){
+					displayName = "~" + parent->name;
+					suppressReturnType = true;
+				}
+			}
+			else if (name == "init"){
+				if (parent){
+					displayName = parent->name;
+					suppressReturnType = true;
+				}
 			}
 
-			intent(level);
-			stream << "}" << endl;
+			if (saveTarget == Source){
+				if (!suppressReturnType){
+					stream << dataTypePointer->name << " ";
+				}
+				stream << getNameSpace() << "::" <<  displayName << "(" << arguments << "){" << std::endl;
+
+				if (content){
+					content->save(stream, saveTarget, level);
+				}
+
+				stream << "}" << endl;
+			}
+			else {
+				intent(level);
+				if (!suppressReturnType){
+					stream << dataTypePointer->name << " ";
+				}
+				stream << displayName << "(" << arguments << ");" << std::endl;
+			}
+
 			break;
 
 		}
@@ -202,22 +259,33 @@ Ast* Ast::findType(const std::string & name) {
 			return it;
 		}
 	}
+	//Try to find type on file system
 	return 0;
 }
 
 Ast* Ast::findFunction(const std::string& name) {
-	if (name == this->name){
-		return this;
-	}
 	if (parent){
 		return parent->findFunction(name);
+	}
+	if (name == this->name){
+		return this;
 	}
 	return 0;
 }
 
-void AstContentBlock::save(std::ostream& stream, int level) {
+Ast* Ast::findVariable(const std::string& name) {
+	if (parent){
+		return parent->findVariable(name);
+	}
+	if (name == this->name){
+		return this;
+	}
+	return 0;
+}
+
+void AstContentBlock::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 	for (auto it: commands){
-		it->save(stream, level + 1);
+		it->save(stream, saveTarget, level + 1);
 	}
 }
 
@@ -254,8 +322,152 @@ std::string Ast::getBlockName() {
 	}
 }
 
+std::string Ast::getNameSpace() {
+	if (parent){
+		return parent->getNameSpace();
+	}
+	else {
+		return "";
+	}
+}
+std::string Ast::getClassFileName(const std::string className){
+	string fileName = className;
+	for (auto &it: fileName){
+		if (it == '.'){
+			it = '/';
+		}
+	}
+	return fileName + ".mcl";
+}
+
+Ast* Ast::LoadClassFile(const std::string& fileName) {
+	auto ret = FindType(fileName);
+	if (ret){
+		return ret;
+	}
+	string className = fileName;
+	for (int i = 0; i < 4; ++i){
+		className.erase(className.size()-1);
+	}
+	for (auto &it: className){
+		if (it == '/'){
+			it = '.';
+		}
+	}
+	char previous = '\0';
+	for (auto it = className.begin(); it != className.end();){
+		if (*it == '.' && previous == '.'){
+			it = className.erase(it);
+			++it;
+		}
+		else {
+			++it;
+		}
+		previous = *it;
+	}
+	if (className[0] == '.'){
+		className.erase(0, 1);
+	}
+	className[0] = toupper(className[0]);
+	fstream file(fileName);
+	if (file.is_open()){
+		auto ast = new AstContentBlock(0);
+		if (ast->load(file)){
+			ast->name = className;
+			types.push_back(ast);
+			DEBUG cout << "class " << className << " loaded" << endl;
+			return ast;
+		}
+		else {
+			delete ast;
+		}
+	}
+
+	return 0;
+}
+
+
+
+Ast* Ast::FindType(const std::string& name) {
+	for (auto it: types){
+		if (it->name == name){
+			return it;
+		}
+	}
+	return 0;
+}
+
+void Ast::LoadClassFolder(const std::string folder) {
+	DIR *dir;
+	struct dirent *ent;
+	if ((dir = opendir (folder.c_str())) != NULL) {
+		//Gå igenom alla filer i mappen
+		while ((ent = readdir (dir)) != NULL) {
+			//			cout << ent->d_name << endl;
+			string dName = ent->d_name;
+			if (dName == "." || dName == ".."){
+				continue;
+			}
+			if (dName.find(".mcl") != dName.size() - 4){
+				continue;
+			}
+
+			string classFile = string(folder + "/" + ent->d_name);
+			LoadClassFile(classFile);
+		}
+		closedir (dir);
+	} else {
+		cerr << "Kunde inte öppna mapp " << folder << endl;
+		return;
+	}
+}
+
+void Ast::setContent(class AstContent* content) {
+	if (this->content) {
+		delete this->content;
+	}
+	this->content = content;
+}
+
 AstContentBlock* Ast::createAstFromStream(std::istream& stream) {
 	auto block = new AstContentBlock(0);
 	block->load(stream);
 	return block;
+}
+
+std::string AstContentBlock::getNameSpace() {
+	if (parent){
+		return parent->getNameSpace() + "::" + parent->name;
+	}
+	else{
+		return name;
+	}
+}
+
+void AstContentBlock::printClassHeader(std::ostream& stream) {
+//	stream << "#pragma once" << endl;
+	stream << "class " << name << "{" << endl;
+	stream << "public:" << endl;
+}
+
+Ast* Ast::evaluate(std::istream &stream) {
+	auto expression = new AstExpression(this);
+	expression->evaluate(stream);
+	return expression;
+}
+
+Ast* Ast::evaluate(std::string str) {
+	istringstream ss(str);
+	evaluate(ss);
+}
+
+Ast* AstContentBlock::findVariable(const std::string& name) {
+	for (auto it: commands){
+		if (it->type == VariableDeclaration){
+			if (it->name == name){
+				return it;
+			}
+		}
+	}
+	return Ast::findVariable(name);
 }

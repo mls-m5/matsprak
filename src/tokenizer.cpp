@@ -40,7 +40,11 @@ Tokenizer::Tokenizer() {
 Tokenizer::~Tokenizer() {
 }
 
-Token Tokenizer::getNextToken(std::istream& stream) {
+Token Tokenizer::getNextToken(std::istream &stream) {
+	return Tokenizer::GetNextToken(stream);
+}
+
+Token Tokenizer::GetNextToken(std::istream &stream){
 	stringstream ss;
 	bool hasNewLine = false;
 
@@ -82,7 +86,15 @@ Token Tokenizer::getNextToken(std::istream& stream) {
 				ss << line;
 				return Token(ss.str(), Token::PreprocessorCommand);
 			}
-			else if(specialCharacters.find(c) != string::npos && stream){
+			else if(specialCharacters.find(c) != string::npos and stream){
+				if (c == '/'){
+					//possible comment
+					if (stream.peek() == '/'){
+						mode = Token::Space;
+						continue;
+					}
+				}
+
 				mode = Token::SpacedOutCharacter;
 				ss.put(c);
 				return Token(ss.str(), Token::SpacedOutCharacter);
@@ -90,9 +102,17 @@ Token Tokenizer::getNextToken(std::istream& stream) {
 		}
 		break;
 		case Token::Space:
-			while (isspace(c) && stream){
+			while ((isspace(c) || c == '/') && stream){
 				if (c == '\n'){
 					hasNewLine = true;
+				}
+				else if (c == '/'){ //Ignore comments
+					if (stream.peek() == '/'){
+						while (c != '\n' and stream){
+							ss.put(c);
+							c = stream.get();
+						}
+					}
 				}
 				ss.put(c);
 				c = stream.get();
@@ -139,8 +159,8 @@ Token Tokenizer::getNextToken(std::istream& stream) {
 	return Token(ss.str(), Token::None);
 }
 
-Token Tokenizer::skipSpace(std::istream& stream, bool newline) {
-	auto token = getNextToken(stream);
+Token Tokenizer::SkipSpace(std::istream& stream, bool newline) {
+	auto token = GetNextToken(stream);
 	if (newline){
 		if (token.type == Token::SpaceWithNewline){
 			return token;
@@ -152,4 +172,18 @@ Token Tokenizer::skipSpace(std::istream& stream, bool newline) {
 	cout << "error.. not space" << endl;
 	//Todo error handling
 	return token;
+}
+
+Token Tokenizer::GetNextTokenAfterSpace(std::istream& stream, bool forceSpace) {
+	if (forceSpace){
+		SkipSpace(stream);
+		return GetNextToken(stream);
+	}
+	else{
+		auto token = GetNextToken(stream);
+		if (token.type == Token::Space){
+			return GetNextToken(stream);
+		}
+		return token;
+	}
 }

@@ -10,6 +10,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cmath>
+#include <iosfwd>
 
 
 class Ast {
@@ -17,14 +19,20 @@ public:
 	Ast(Ast* parent = 0): parent(parent) {}
 	virtual ~Ast();
 
+	enum SaveTarget{
+		Header,
+		Source
+	};
+
 	//Return true if loaded
 	virtual bool load(std::istream &stream);
-	virtual void save(std::ostream &stream, int intentation = 0);
+	virtual void save(std::ostream &stream, SaveTarget, int intentation = 0);
 
 	enum AstType{
 		FunctionDefinition,
 		VariableDeclaration,
 		FunctionCall,
+		UsingStatement,
 		Block,
 		Assignment,
 		None
@@ -34,8 +42,20 @@ public:
 	class AstContent *content = 0;
 
 	virtual Ast *findType(const std::string &name);
+
+	static Ast *FindType(const std::string &name);
+
+	static std::string getClassFileName(const std::string className);
+	static Ast *LoadClassFile(const std::string &classFile);
+	static void LoadClassFolder(const std::string folder);
 	virtual Ast *findFunction(const std::string &name);
+	virtual Ast *findVariable(const std::string &name);
 	virtual std::string getBlockName();
+	virtual std::string getNameSpace();
+	virtual Ast* evaluate(std::istream &);
+	virtual Ast* evaluate(std::string str);
+
+	void setContent(class AstContent* content);
 
 	std::string name;
 	Ast *parent;
@@ -59,9 +79,12 @@ public:
 	}
 
 	bool load(std::istream &stream);
-	void save(std::ostream &stream, int intendation = 0);
+	void save(std::ostream &stream, SaveTarget, int intendation = 0);
+	void printClassHeader(std::ostream &stream);
 
 	Ast *findFunction(const std::string &name);
+	Ast *findVariable(const std::string &name);
+	virtual std::string getNameSpace();
 
 	std::vector <class Ast *> commands;
 
@@ -76,4 +99,3 @@ public:
 
 	std::string arguments;
 };
-

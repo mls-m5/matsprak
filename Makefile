@@ -22,4 +22,5 @@ main.o: main.cpp $(OBJECTS)
 tests/%: tests/%.cpp src/*.cpp include/*.h
 	g++ $< $(OBJECTS) -o $@ -I./include $(CFLAGS)
 
-
+clean:
+	rm $(OBJECTS) $(TARGET) $(TEST_BIN)

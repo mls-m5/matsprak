@@ -28,6 +28,9 @@ public:
 		type(type){
 		this->std::string::operator=(str);
 	}
+	virtual ~Token(){
+
+	}
 
 	TokenType type;
 
@@ -35,12 +38,12 @@ public:
 
 class Tokenizer {
 public:
-
-
 	Tokenizer();
 	virtual ~Tokenizer();
 
 	Token getNextToken(std::istream &stream);
-	Token skipSpace(std::istream &stream, bool newline = false);
+	static Token GetNextToken(std::istream &stream);
+	static Token GetNextTokenAfterSpace(std::istream &stream, bool forceSpace = false);
+	static Token SkipSpace(std::istream &stream, bool newline = false);
 };
 
