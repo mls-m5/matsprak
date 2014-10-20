@@ -44,6 +44,11 @@ public:
 	Token getNextToken(std::istream &stream);
 	static Token GetNextToken(std::istream &stream);
 	static Token GetNextTokenAfterSpace(std::istream &stream, bool forceSpace = false);
+
+	static Token GetNextCToken(std::istream &stream);
+	static Token SkipCSpace(std::istream &stream, bool forceSpace = false);
+	static Token GetNextCTokenAfterSpace(std::istream &stream, bool forceSpace = false);
+
 	static Token SkipSpace(std::istream &stream, bool newline = false);
 };
 

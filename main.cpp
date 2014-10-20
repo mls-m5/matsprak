@@ -14,21 +14,20 @@ int compile(string code){
 	FILE* pipe;
 	pipe = popen(cmd, "w");
 	if (!pipe) return 1;
-	char buffer[10000];
 
 	fprintf(pipe, code.c_str());
 	pclose(pipe);
 }
 
+
 int main(int argc, char *argv[]){
-	std::ifstream file("Testkod/simple.mcl");
+	string file("Testkod/simple.mcl");
 
 	stringstream ss;
 
-	auto ast = Ast::createAstFromStream(file);
+	auto ast = Ast::LoadClassFile(file);
 	cout << "header" << endl;
 	ast->name = "Simple";
-	ast->printClassHeader(ss);
 	ast->save(ss, Ast::Header);
 	ss << "};" << endl;
 

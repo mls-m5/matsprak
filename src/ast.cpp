@@ -5,6 +5,7 @@
  *      Author: Mattias Larsson Sköld
  */
 
+#include <cast.h>
 #include "ast.h"
 #include "tokenizer.h"
 #include <list>
@@ -19,19 +20,29 @@ using namespace std;
 
 std::list<Ast*> types;
 
+std::vector<string> basicTypeNames = {
+		"void",
+		"int",
+		"float",
+		"double",
+		"long",
+		"long int", //Todo: Extend with all more types
+		"short",
+		"long",
+		"char",
+};
+
 //For initializing stuff
 static class InitializerClass{
 public:
 	InitializerClass(){
 		if (!types.size()){
-			auto intAst = new Ast;
-			intAst->type = Ast::VariableDeclaration;
-			intAst->name = "int";
-			types.push_back(intAst);
-			auto voidAst = new Ast;
-			voidAst->type = Ast::VariableDeclaration;
-			voidAst->name = "void";
-			types.push_back(voidAst);
+			for (auto &it: basicTypeNames){
+				auto typeAst = new Ast;
+				typeAst->type = Ast::VariableDeclaration;
+				typeAst->name = it;
+				types.push_back(typeAst);
+			}
 		}
 	}
 } _initializer;
@@ -49,14 +60,14 @@ Ast::~Ast() {
 	}
 }
 
-void throwError(std::string description){
+void Ast::throwError(std::string description){
 	cout << description << endl;
 }
 
 bool Ast::load(std::istream& stream) {
 	Tokenizer tokenizer;
 	Ast *tmp;
-	auto ret = tokenizer.getNextToken(stream);
+	auto ret = tokenizer.GetNextTokenAfterSpace(stream);
 	if (!stream){
 		return false; //end of stream
 	}
@@ -140,6 +151,14 @@ bool Ast::load(std::istream& stream) {
 		}
 
 	}
+	else if (ret == "include"){
+		ret = tokenizer.GetNextTokenAfterSpace(stream, true);
+		type = Include;
+		name = ret;
+		ostringstream includeSs;
+		save(includeSs, Source, 0);
+		setContent(CAst::CreateHeaderFromCommand(includeSs.str()));
+	}
 	else if ((tmp = findType(ret))){
 		tokenizer.SkipSpace(stream);
 		ret = tokenizer.getNextToken(stream);
@@ -153,8 +172,13 @@ bool Ast::load(std::istream& stream) {
 		type = Assignment;
 		ret = Tokenizer::GetNextTokenAfterSpace(stream);
 		if (ret == "="){
-			setContent(new AstExpression(this));
-			content->evaluate(stream);
+			auto astBinaryOperator = new AstBinaryOperator(this);
+			auto expression = new AstExpression(this);
+			expression->evaluate(stream);
+			astBinaryOperator->name = "=";
+			astBinaryOperator->setFirst(tmp, false);
+			astBinaryOperator->setSecond(expression, true);
+			setContent(astBinaryOperator);
 		}
 		DEBUG cout << "assignment " << ret << endl;
 
@@ -169,7 +193,13 @@ bool AstContentBlock::load(std::istream& stream) {
 	type = Block;
 	Ast *command = new Ast(this);
 	while (command->load(stream)){
-		commands.push_back(command);
+		if (command->type == Include){
+			//Before everything
+			commands.insert(commands.begin(), command);
+		}
+		else{
+			commands.push_back(command);
+		}
 		command = new Ast(this);
 	}
 	delete command;
@@ -248,19 +278,45 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 
 			break;
 
+		case Assignment:
+
+			intent(level);
+			if (content){
+				content->save(stream, saveTarget, level);
+				stream << ";" << endl;
+			}
+			break;
+
+		case Include:
+
+			stream << "#include <" << name << ".h>" << endl; //Put includes in beginning of file
+
+			break;
+
+		case ClassHeader:
+
+			if (saveTarget == Header){
+				printClassHeader(stream);
+			}
+			break;
+
 		default:
 			break;
 	}
 }
 
 Ast* Ast::findType(const std::string & name) {
-	for (auto it: types){
-		if (name.compare(it->name) == 0){
-			return it;
+	if (type == Typedef){
+		if (this->name == name){
+			return this;
 		}
 	}
-	//Try to find type on file system
-	return 0;
+	if (parent){
+		return parent->findType(name);
+	}
+	else {
+		return FindType(name);
+	}
 }
 
 Ast* Ast::findFunction(const std::string& name) {
@@ -372,6 +428,9 @@ Ast* Ast::LoadClassFile(const std::string& fileName) {
 	fstream file(fileName);
 	if (file.is_open()){
 		auto ast = new AstContentBlock(0);
+		auto header = new AstContent(ast);
+		header->type = ClassHeader;
+		ast->commands.push_back(header);
 		if (ast->load(file)){
 			ast->name = className;
 			types.push_back(ast);
@@ -435,6 +494,26 @@ AstContentBlock* Ast::createAstFromStream(std::istream& stream) {
 	return block;
 }
 
+Ast* AstContentBlock::findType(const std::string& name) {
+	auto ret = Ast::findType(name);
+	if (ret){
+		return ret;
+	}
+	for (auto &it: commands){
+		if (it->type == Typedef){
+			if (it->name == name){
+				return it;
+			}
+		}
+	}
+	if (parent){
+		return parent->findType(name);
+	}
+	else {
+		return FindType(name);
+	}
+}
+
 std::string AstContentBlock::getNameSpace() {
 	if (parent){
 		return parent->getNameSpace() + "::" + parent->name;
@@ -444,10 +523,12 @@ std::string AstContentBlock::getNameSpace() {
 	}
 }
 
-void AstContentBlock::printClassHeader(std::ostream& stream) {
+void Ast::printClassHeader(std::ostream& stream) {
 //	stream << "#pragma once" << endl;
-	stream << "class " << name << "{" << endl;
-	stream << "public:" << endl;
+	if (parent){
+		stream << "class " << parent->name << "{" << endl;
+		stream << "public:" << endl;
+	}
 }
 
 Ast* Ast::evaluate(std::istream &stream) {

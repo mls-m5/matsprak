@@ -1,10 +1,14 @@
 
+include stdio
+
 int a = 0;
 int b = 3;
 TestKlass klass;
 
 function init()
 	call prutt
+	
+	printf "klass laddad %d", 1
 end function
 
 function destroy()

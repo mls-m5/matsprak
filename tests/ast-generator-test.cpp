@@ -97,6 +97,7 @@ TEST_CASE("evaluate expression"){
 			"int z\n"
 			"z = x + y * z ^ 2\n");
 	ast.load(ss);
+	ast.save(cout, Ast::Header, 0);
 
 	ASSERT_EQ(ast.commands.size(), 4);
 	ASSERT_EQ(ast.commands[3]->type, Ast::Assignment);
