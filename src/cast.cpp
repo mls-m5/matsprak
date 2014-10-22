@@ -322,7 +322,8 @@ std::string runGccCommand(std::string cmd){
 	return ss.str();
 }
 class CAstContentBlock* CAst::CreateHeaderFromCommand(std::string headerName) {
-	std::string definesToMakeThingsEasier = "#define extern\n"
+	std::string definesToMakeThingsEasier =
+			"#define extern\n" //Remove unused keywords and macros
 			"#define __attribute__(x)\n"
 			"#define __format__(x)\n"
 			"#define __inline inline\n"

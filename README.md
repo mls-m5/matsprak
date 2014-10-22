@@ -1,3 +1,11 @@
+
+=======
+matsprak
+========
+
+A compiler for my new programming language - matsprak
+
+
 Goals
 
 * Compatibility with c (link to c-libraries)
@@ -38,14 +46,13 @@ Secondary goal
 
 
 Language specification
-===========
 Comments
 --------
 C++ style comments
 
 //this is a comment
 
-/*this is not a comment*/
+/***this is not a comment***/ 
 
 Functions
 --------
@@ -74,4 +81,3 @@ virtual - for inheritated functions
 string - string type
 
 ...standard c++ types
-
