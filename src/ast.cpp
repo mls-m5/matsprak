@@ -26,6 +26,8 @@ std::vector<string> basicTypeNames = {
 		"float",
 		"double",
 		"long",
+		"unsigned",
+		"signed",
 		"long int", //Todo: Extend with all more types
 		"short",
 		"long",
@@ -50,6 +52,18 @@ public:
 void intent(int level){
 	for (int i = 0; i < level; ++i){
 		cout << "     ";
+	}
+}
+
+
+//Skip content of prackets
+static void skipBrackets(std::istream &stream, std::string begin, std::string end){
+	auto token = Tokenizer::GetNextCTokenAfterSpace(stream);
+	while (token != end and stream){
+		token = Tokenizer::GetNextCTokenAfterSpace(stream);
+		if (token == begin){
+			skipBrackets(stream, begin, end);
+		}
 	}
 }
 
@@ -114,13 +128,18 @@ bool Ast::load(std::istream& stream) {
 		else if (ret.type == Token::SpacedOutCharacter && ret == "("){
 			//Todo: read argument list
 
-			ret = tokenizer.getNextToken(stream);
+			string argumentContent;
 
+			ret = tokenizer.GetNextToken(stream);
 			while (ret != ")"){
-				//Skip arguments
-				arguments += ret;
-				ret = tokenizer.getNextToken(stream);
+				argumentContent += (ret + " ");
+				ret = tokenizer.GetNextToken(stream);
 			}
+
+			auto contentExpression = new AstRawContent(this, argumentContent);
+			setContent(contentExpression);
+
+//			skipBrackets(stream, "(", ")");
 
 			tokenizer.SkipSpace(stream, true);
 		}
@@ -134,11 +153,34 @@ bool Ast::load(std::istream& stream) {
 	else if (ret == "call"){
 		tokenizer.SkipSpace(stream);
 		ret = tokenizer.getNextToken(stream);
+		type = FunctionCall;
 		DEBUG cout << "function call " << ret << endl;
 		auto functionAst = findFunction(ret);
 		dataTypePointer = functionAst;
-		tokenizer.SkipSpace(stream, true);
-		type = FunctionCall;
+
+		ret = Tokenizer::GetNextToken(stream);
+		if (ret.type == Token::SpaceWithNewline){
+			return true;
+		}
+		else if (ret.type == Token::Space){
+			ret = Tokenizer::GetNextTokenAfterSpace(stream);
+		}
+		if (ret == "("){
+			string argumentContent;
+			ret = tokenizer.GetNextTokenAfterSpace(stream);
+			while (ret != ")"){
+				argumentContent += (ret.formatOutput() + " ");
+				ret = tokenizer.GetNextToken(stream);
+			}
+
+			auto contentExpression = new AstRawContent(this, argumentContent);
+			setContent(contentExpression);
+			tokenizer.SkipSpace(stream, true);
+			return true;
+		}
+		else{
+			throwError("expected '(' or newline");
+		}
 	}
 	else if (ret == "using"){
 		tokenizer.SkipSpace(stream);
@@ -153,8 +195,12 @@ bool Ast::load(std::istream& stream) {
 	}
 	else if (ret == "include"){
 		ret = tokenizer.GetNextTokenAfterSpace(stream, true);
+		name = "";
+		while (ret.type == Token::Word or ret == "."){
+			name += ret;
+			ret = Tokenizer::GetNextToken(stream);
+		}
 		type = Include;
-		name = ret;
 		ostringstream includeSs;
 		save(includeSs, Source, 0);
 		setContent(CAst::CreateHeaderFromCommand(includeSs.str()));
@@ -167,6 +213,24 @@ bool Ast::load(std::istream& stream) {
 		type = VariableDeclaration;
 		dataTypePointer = tmp;
 		tokenizer.SkipSpace(stream, true);
+	}
+	else if ((tmp = findFunction(ret))){
+		//Function call
+
+		DEBUG cout << "function call " << tmp->name << endl;
+		dataTypePointer = tmp;
+		type = FunctionCall;
+
+		string argumentContent;
+
+		ret = tokenizer.GetNextTokenAfterSpace(stream);
+		while (ret.type != Token::SpaceWithNewline){
+			argumentContent += (ret.formatOutput() + " ");
+			ret = tokenizer.GetNextToken(stream);
+		}
+
+		auto contentExpression = new AstRawContent(this, argumentContent);
+		setContent(contentExpression);
 	}
 	else if ((tmp = findVariable(ret))){
 		type = Assignment;
@@ -269,7 +333,15 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 
 			if (dataTypePointer){
 				intent(level);
-				stream << dataTypePointer->name << "();" << endl;
+				if (content){
+					stream << dataTypePointer->name << "(";
+					content->save(stream, saveTarget, level);
+					stream << ");" << endl;
+				}
+				else {
+					stream << dataTypePointer->name << "();" << endl;
+				}
+
 			}
 			else{
 				intent(level);
@@ -288,11 +360,18 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 			break;
 
 		case Include:
+		{
+			string header = name;
+			for (auto &it: header){
+				if (it == '.'){
+					it = '/';
+				}
+			}
 
-			stream << "#include <" << name << ".h>" << endl; //Put includes in beginning of file
+			stream << "#include <" << header << ".h>" << endl; //Put includes in beginning of file
 
 			break;
-
+		}
 		case ClassHeader:
 
 			if (saveTarget == Header){
@@ -306,7 +385,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 }
 
 Ast* Ast::findType(const std::string & name) {
-	if (type == Typedef){
+	if (type == Typedef or type == Struct){
 		if (this->name == name){
 			return this;
 		}
@@ -321,7 +400,12 @@ Ast* Ast::findType(const std::string & name) {
 
 Ast* Ast::findFunction(const std::string& name) {
 	if (parent){
-		return parent->findFunction(name);
+		if (type == Include){
+			return content->findFunction(name);
+		}
+		else {//To avoid infinite loop)
+			return parent->findFunction(name);
+		}
 	}
 	if (name == this->name){
 		return this;
@@ -353,6 +437,12 @@ Ast* AstContentBlock::findFunction(const std::string& name) {
 		if (it->type == FunctionDefinition){
 			if (it->name == name){
 				return it;
+			}
+		}
+		else if (it->type == Include) {
+			auto ret = it->findFunction(name);
+			if (ret){
+				return ret;
 			}
 		}
 	}
@@ -500,7 +590,7 @@ Ast* AstContentBlock::findType(const std::string& name) {
 		return ret;
 	}
 	for (auto &it: commands){
-		if (it->type == Typedef){
+		if (it->type == Typedef or it->type == Struct){
 			if (it->name == name){
 				return it;
 			}

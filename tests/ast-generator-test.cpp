@@ -19,8 +19,8 @@ TEST_SUIT_BEGIN
 TEST_CASE("basic test"){
 	Ast ast;
 
-	istringstream ss("function apa() \n"
-			"call apa \n"
+	istringstream ss("function apa(int x) \n"
+			"call apa 1\n"
 			"call bepa \n"
 			"int i \n"
 			"end function \n");
@@ -30,6 +30,7 @@ TEST_CASE("basic test"){
 
 	ASSERT_EQ(ast.type, Ast::FunctionDefinition);
 	ASSERT_EQ(ast.name, "apa");
+	ASSERT(ast.content, "apa har definitivt ingen argument lista");
 
 	ASSERT_NE(ast.content, 0);
 	auto content = (AstContentBlock*)ast.content;
@@ -61,6 +62,11 @@ TEST_CASE("find defined functions"){
 	}
 
 	return 0;
+}
+
+TEST_CASE("function arguments"){
+	istringstream ss("function apa(int x)\n"
+			"end function\n");
 }
 
 TEST_CASE("command type test"){
@@ -101,6 +107,49 @@ TEST_CASE("evaluate expression"){
 
 	ASSERT_EQ(ast.commands.size(), 4);
 	ASSERT_EQ(ast.commands[3]->type, Ast::Assignment);
+
+	return 0;
+}
+
+TEST_CASE("call printf"){
+	AstContentBlock ast(0);
+	istringstream ss("include stdio\n"
+			"function apa()\n"
+			"call printf (\"hej\")\n"
+			"end function\n");
+	ast.load(ss);
+
+	return 0;
+}
+
+TEST_CASE("call SDL_Init"){
+	AstContentBlock ast(0);
+	istringstream ss("include SDL2.SDL\n"
+			"function apa()\n"
+			"call SDL_Init\n"
+			"end function\n");
+	ast.load(ss);
+
+	return 0;
+}
+
+TEST_CASE("forward declared functions"){
+	istringstream ss("function apa() \n"
+			"call bepa\n"
+			"end function \n"
+			"function bepa()\n"
+			"end function()");
+
+	AstContentBlock ast(0);
+	ast.load(ss);
+
+	auto ret = ast.findFunction("apa");
+	ASSERT(ret, "first function not declared");
+	auto content = dynamic_cast<AstContentBlock*>(ret->content);
+	ASSERT(content, "content not declared or wrong type");
+	ASSERT_GT(content->commands.size(), 0);
+	ASSERT(content->commands.front()->dataTypePointer, "bepa not found");
+	ASSERT_EQ(content->commands.front()->dataTypePointer->name, "bepa");
 
 	return 0;
 }

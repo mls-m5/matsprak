@@ -28,6 +28,14 @@ public:
 		type(type){
 		this->std::string::operator=(str);
 	}
+	std::string formatOutput(){
+		if (type == String){
+			return "\"" + *this + "\"";
+		}
+		else{
+			return *this;
+		}
+	}
 	virtual ~Token(){
 
 	}

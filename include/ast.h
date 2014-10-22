@@ -33,6 +33,7 @@ public:
 		FunctionDefinition,
 		VariableDeclaration,
 		Typedef,
+		Struct,
 		FunctionCall,
 		Enum,
 		UsingStatement,
@@ -67,6 +68,8 @@ public:
 	Ast *parent = 0;
 	int pointerDepth = 0;
 	bool constExpression = false;
+	bool staticExpression = false;
+	bool inlineExpression = false;
 
 	static class AstContentBlock *createAstFromStream(std::istream &stream);
 

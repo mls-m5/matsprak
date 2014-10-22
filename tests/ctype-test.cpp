@@ -113,7 +113,8 @@ TEST_CASE("typedef"){
 }
 
 TEST_CASE("load header"){
-	auto ast = CAst::CreateHeaderFromCommand("#include <stdio.h>");
+	auto ast = CAst::CreateHeaderFromCommand("#include <stdio.h>\n"
+			"#include <SDL2/SDL.h>\n");
 
 	ASSERT(ast, "no header created");
 
@@ -125,6 +126,11 @@ TEST_CASE("load header"){
 
 	ASSERT(ret, "printf was not found");
 
+	return 0;
+}
+
+TEST_CASE("typedef function pointers"){
+	ASSERT(0, "not implemented");
 	return 0;
 }
 
@@ -157,6 +163,52 @@ TEST_CASE("array expression"){
 	auto ret = ast.findVariable("apa");
 	ASSERT(ret, "apa is not defined");
 	ASSERT_EQ(ret->pointerDepth, 1);
+	return 0;
+}
+
+#define CREATE_CAST_BLOCK(x) istringstream ss(x); CAstContentBlock ast(0); ast.load(ss);
+
+TEST_CASE("struct test"){
+	{
+		//Forward declaration
+		CREATE_CAST_BLOCK("struct apa;");
+		ASSERT_EQ(ast.commands.size(), 1);
+		ASSERT(ast.commands[0], "command not defined");
+		ASSERT_EQ(ast.commands[0]->type, Ast::Struct);
+	}
+
+	{
+		//Struct definition only
+		CREATE_CAST_BLOCK("struct apa {};");
+		ASSERT_EQ(ast.commands.size(), 1);
+		ASSERT(ast.commands[0], "command not defined");
+		ASSERT_EQ(ast.commands[0]->type, Ast::Struct);
+		ASSERT_EQ(ast.commands[0]->name, "apa");
+	}
+
+	{
+		//Struct definition and variable declaration
+		CREATE_CAST_BLOCK("struct apa {} bepa;");
+		ASSERT_EQ(ast.commands.size(), 2);
+		ASSERT(ast.commands[0], "command not defined");
+		ASSERT(ast.commands[1], "command 2 not defined");
+		ASSERT_EQ(ast.commands[0]->type, Ast::Struct);
+		ASSERT_EQ(ast.commands[0]->name, "apa");
+		ASSERT_EQ(ast.commands[1]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[1]->name, "bepa");
+	}
+
+	{
+		//Anonymous struct
+		CREATE_CAST_BLOCK("struct {} apa;");
+		ASSERT_EQ(ast.commands.size(), 2);
+		ASSERT(ast.commands[0], "command not defined");
+		ASSERT(ast.commands[1], "command 2 not defined");
+		ASSERT_EQ(ast.commands[0]->type, Ast::Struct);
+		ASSERT_EQ(ast.commands[1]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[1]->name, "apa");
+	}
+
 	return 0;
 }
 

@@ -1,13 +1,19 @@
 
 include stdio
+include SDL2.SDL
 
 int a = 0;
 int b = 3;
 TestKlass klass;
 
+function prutt(char *message)
+	printf message
+end function
+
 function init()
 	call prutt
 	
+	call printf ("hej\n")
 	printf "klass laddad %d", 1
 end function
 
@@ -16,12 +22,10 @@ function destroy()
 end function
 
 
-function prutt()
-
-end function
 
 function on_load()
-	call prutt
+	prutt "pruuuut"
+	SDL_Init
 end function
 	
 function bepa

@@ -100,6 +100,9 @@ Token Tokenizer::GetNextToken(std::istream &stream){
 				ss.put(c);
 				return Token(ss.str(), Token::SpacedOutCharacter);
 			}
+			else {
+				cout << "Tokenizer: funny token" << endl;
+			}
 		}
 		break;
 		case Token::Space:
@@ -324,13 +327,14 @@ Token Tokenizer::SkipCSpace(std::istream& stream, bool forceSpace) {
 
 Token Tokenizer::GetNextCTokenAfterSpace(std::istream& stream, bool forceSpace) {
 	if (forceSpace){
-		SkipSpace(stream);
+		SkipCSpace(stream);
 		return GetNextCToken(stream);
 	}
 	else{
 		auto token = GetNextCToken(stream);
-		if (token.type == Token::Space){
-			return GetNextCToken(stream);
+		while ((token.type == Token::Space or token.type == Token::SpaceWithNewline or
+				token.type == Token::PreprocessorCommand) and stream){
+			token = GetNextCToken(stream);
 		}
 		return token;
 	}
