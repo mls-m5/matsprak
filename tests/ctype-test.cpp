@@ -12,6 +12,9 @@
 #include "tokenizer.h"
 using namespace std;
 
+#define CREATE_CAST(x) istringstream ss(x); CAst ast(0, ss);
+#define CREATE_CAST_BLOCK(x) istringstream ss(x); CAstContentBlock ast(0); ast.load(ss);
+
 TEST_SUIT_BEGIN
 
 TEST_CASE("function definition"){
@@ -102,12 +105,25 @@ return 0;
 }
 
 TEST_CASE("typedef"){
-	istringstream ss("typedef long short * float apa;");
+	istringstream ss("typedef long int * apa;");
 	CAst cast(0);
 	cast.load(ss);
 
 	ASSERT_EQ(cast.type, Ast::Typedef);
 	ASSERT_EQ(cast.name, "apa");
+	ASSERT(cast.dataTypePointer, "no datatype defined");
+	ASSERT_EQ(cast.dataTypePointer, Ast::FindType("long int"));
+
+	return 0;
+}
+
+TEST_CASE("typedef function"){
+	CREATE_CAST("typedef int apa (int x);");
+
+	ASSERT_EQ(ast.type, Ast::Typedef);
+	ASSERT_EQ(ast.name, "apa");
+	ASSERT(ast.dataTypePointer, "no datatype defined");
+	ASSERT_EQ(ast.dataTypePointer, Ast::FindType("int"));
 
 	return 0;
 }
@@ -130,7 +146,24 @@ TEST_CASE("load header"){
 }
 
 TEST_CASE("typedef function pointers"){
-	ASSERT(0, "not implemented");
+	{
+		CREATE_CAST("int (*apa) (int x);");
+
+		ASSERT_EQ(ast.type, Ast::FunctionPointer)
+		ASSERT(ast.dataTypePointer, "no datatype");
+		ASSERT_EQ(ast.dataTypePointer->name, "int");
+		ASSERT_EQ(ast.name, "apa");
+	}
+
+	{
+		CREATE_CAST("typedef int (*funcname) (int x);");
+
+		ASSERT_EQ(ast.type, Ast::TypedefFunctionPointer)
+		ASSERT(ast.dataTypePointer, "no datatype");
+		ASSERT_EQ(ast.dataTypePointer->name, "int");
+		ASSERT_EQ(ast.name, "funcname");
+	}
+
 	return 0;
 }
 
@@ -146,7 +179,7 @@ TEST_CASE("skip preprocessor commands"){
 	return 0;
 }
 
-#define CREATE_CAST(x) istringstream ss(x); CAst ast(0); ast.load(ss);
+
 TEST_CASE("const expressions"){
 	CREATE_CAST("const int apa;");
 
@@ -166,7 +199,6 @@ TEST_CASE("array expression"){
 	return 0;
 }
 
-#define CREATE_CAST_BLOCK(x) istringstream ss(x); CAstContentBlock ast(0); ast.load(ss);
 
 TEST_CASE("struct test"){
 	{
@@ -206,6 +238,17 @@ TEST_CASE("struct test"){
 		ASSERT(ast.commands[1], "command 2 not defined");
 		ASSERT_EQ(ast.commands[0]->type, Ast::Struct);
 		ASSERT_EQ(ast.commands[1]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[1]->name, "apa");
+	}
+
+	{
+		//Anonymous struct through typedef
+		CREATE_CAST_BLOCK("typedef struct {} apa;");
+		ASSERT_EQ(ast.commands.size(), 2);
+		ASSERT(ast.commands[0], "command not defined");
+		ASSERT(ast.commands[1], "command 2 not defined");
+		ASSERT_EQ(ast.commands[0]->type, Ast::Struct);
+		ASSERT_EQ(ast.commands[1]->type, Ast::Typedef);
 		ASSERT_EQ(ast.commands[1]->name, "apa");
 	}
 

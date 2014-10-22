@@ -385,7 +385,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 }
 
 Ast* Ast::findType(const std::string & name) {
-	if (type == Typedef or type == Struct){
+	if (type == Typedef or type == Struct or type == TypedefFunctionPointer){
 		if (this->name == name){
 			return this;
 		}
@@ -590,7 +590,7 @@ Ast* AstContentBlock::findType(const std::string& name) {
 		return ret;
 	}
 	for (auto &it: commands){
-		if (it->type == Typedef or it->type == Struct){
+		if (it->type == Typedef or it->type == Struct or it->TypedefFunctionPointer){
 			if (it->name == name){
 				return it;
 			}

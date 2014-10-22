@@ -11,6 +11,10 @@
 class CAst: public Ast {
 public:
 	CAst(Ast *parent): Ast(parent){};
+	CAst(Ast *parent, std::istream &stream):
+	Ast(parent){
+		load(stream);
+	}
 	virtual ~CAst();
 
 	bool load(std::istream &stream);
@@ -24,6 +28,9 @@ class CAstContentBlock: public AstContentBlock {
 public:
 
 	CAstContentBlock(Ast *parent): AstContentBlock(parent) {}
+	CAstContentBlock(Ast *parent, std::istream &stream): AstContentBlock(parent) {
+		load(stream);
+	}
 	~CAstContentBlock() {}
 
 	bool load(std::istream &stream);

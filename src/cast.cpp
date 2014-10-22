@@ -9,7 +9,7 @@
 
 #include "tokenizer.h"
 #include <sstream>
-#define DEBUG if (0)
+#define DEBUG if (1)
 
 CAst::~CAst() {
 }
@@ -63,8 +63,6 @@ bool CAst::load(std::istream& stream) {
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 		DEBUG std::cout << "union or struct " << token << std::endl;
 		if (token == "{"){
-//			skipBrackets(stream, "{", "}");
-//			token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			DEBUG cout << "anonymous struct" << endl;
 			name = "<anonymous>";
 		}
@@ -73,18 +71,11 @@ bool CAst::load(std::istream& stream) {
 			if ((tmp = findType(token))){
 				//Forward declaration? Todo: Check if it is that or struct declaration
 				dataTypePointer = tmp;
-				//Do a variable declaration instead
-//				token = Tokenizer::GetNextCTokenAfterSpace(stream);
 				if (token == ";"){
 					DEBUG cout << "redefinition of forward declaration.. " << endl;
 					Tokenizer::SkipCSpace(stream);
 					return true; //Todo: Return true? it will be a duplicate
 				}
-				//else just continue
-//				else if (token != "{"){
-//					goto doVariableDeclaration; //this is hopefully the only time i will do a goto
-//					//I will probably fix this some time... replace with function
-//				}
 			}
 			name = token;
 			token = Tokenizer::GetNextCTokenAfterSpace(stream);
@@ -132,22 +123,169 @@ bool CAst::load(std::istream& stream) {
 	else if (token == "typedef"){
 		type = Typedef;
 
-		//cheeting
-		auto previous = token = Tokenizer::GetNextCTokenAfterSpace(stream);
+		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 
-		while (token != ";" and stream){
-			previous = token;
+		if (token == "struct" or token == "union" or token == "enum"){
+			DEBUG cout << token << " declaration through typedef" << endl;
 			token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			if (token == "{"){
-				skipBrackets(stream, "{", "}");
+				skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				if (token.type == Token::Word){
+					name = token;
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+
+					if (token == ";"){
+						if (parent){
+							auto ast = new CAst(parent);
+							ast->name = "<anonymous>";
+							if (token == "enum"){
+								ast->type = Enum;
+							}
+							else{
+								ast->type = Struct;
+							}
+							((CAstContentBlock*)parent)->commands.push_back(ast);
+							DEBUG cout << "anonymous struct " << name << endl;
+						}
+
+						return true;
+					}
+					else {
+						throwError("expected ; at end of statement");
+						return false;
+					}
+				}
+				else{
+					throwError("expected typedef name");
+					return false;
+				}
+			}
+			else {
+				if ((tmp = findType(token))){
+					dataTypePointer = tmp;
+					//The type exists no need to forward declare
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				}
+				else {
+					if (parent){
+						auto ast = new CAst(parent);
+						ast->name = token;
+						ast->type = Struct;
+						((CAstContentBlock*)parent)->commands.push_back(ast);
+						DEBUG cout << "struct  " << token << endl;
+						dataTypePointer = ast;
+					}
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+					if (token == "{"){
+						skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+						DEBUG cout << "skipped content" << endl;
+					}
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				}
+				//continue to define type
 			}
 		}
-		name = previous; //take the last word before ";"
-		DEBUG std::cout << "typedef" << name << std::endl;
+		else {
+
+			std::string dataTypeName = token;
+			tmp = findType(token);
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+			while (FindType(token)){ //locking for double word basic types
+				dataTypeName += " " + token;
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				tmp = FindType(dataTypeName);
+			}
+			dataTypePointer = tmp;
+
+		}
+
+		while (token == "*" and stream){
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+			pointerDepth ++;
+		}
+
+		if (token == "("){
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+			if (token == "*"){
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				if (token.type == Token::Word){
+					name = token;
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+					if (token != ")"){
+						throwError("expected ')' after function pointer name");
+						return false;
+					}
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+					type = TypedefFunctionPointer;
+
+					if (token == "("){
+						skipBrackets(stream, "(", ")");
+						token = Tokenizer::GetNextCTokenAfterSpace(stream);
+						if (token == ";"){
+							if (name == "SDL_AudioFilter"){
+								cout << "här" << endl;
+							}
+							DEBUG std::cout << "typedef function pointer " << name << std::endl;
+							return true;
+						}
+						else {
+							throwError("expected ; after statement");
+						}
+					}
+					else{
+						throwError("expected arguments for typedef function pointer");
+						return false;
+					}
+				}
+			}
+			else{
+				throwError("expected * for function pointer");
+				return false;
+			}
+		}
+		else if (token.type == Token::Word){
+			name = token; //take the last word before ";"
+			type = Typedef;
+
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+
+			if (token == ";"){
+				DEBUG cout << "typedef " << name << endl;
+			}
+			else if (token == "("){
+				skipBrackets(stream, "(", ")");
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				if (token == ";"){
+					DEBUG cout << "typedef function (no pointer) " << name << endl;
+					return true;
+				}
+				else{
+					throwError("expected ; after function typedef definition");
+				}
+			}
+			else if (token == "["){
+				skipBrackets(stream, "[", "]");
+				token = Tokenizer::GetNextTokenAfterSpace(stream);
+				pointerDepth ++;
+				if (token == ";"){
+					DEBUG cout << "typedef array " << name << endl;
+					return true;
+				}
+				else{
+					throwError("expected ; after function typedef definition");
+				}
+			}
+			else {
+				throwError("expected ; after statement");
+			}
+		}
+		else{
+			throwError("expected string to have as name for typedef");
+		}
+
 	}
-//	else if (token == "struct"){
-//		name = token;
-//	}
 	else if (token == "enum"){
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 		type = Ast::Enum;
@@ -167,7 +305,6 @@ bool CAst::load(std::istream& stream) {
 	}
 	else if ((tmp = findType(token))){
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
-		doVariableDeclaration:
 		std::string dataTypeName = tmp->name;
 		type = VariableDeclaration;
 
@@ -183,7 +320,27 @@ bool CAst::load(std::istream& stream) {
 			pointerDepth ++;
 		}
 
-		if (token.type == Token::Word){
+		if (token == "("){
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+			if (token == "*"){
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				if (token.type == Token::Word){
+					name = token;
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+					if (token != ")"){
+						throwError("expected ')' after function pointer name");
+						return false;
+					}
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+					type = FunctionPointer;
+				}
+			}
+			else{
+				throwError("expected * for function pointer");
+				return false;
+			}
+		}
+		else if (token.type == Token::Word){
 			if (token == "const"){
 				//todo: implement this
 				token = Tokenizer::GetNextCTokenAfterSpace(stream);
@@ -196,48 +353,54 @@ bool CAst::load(std::istream& stream) {
 				pointerDepth ++;
 				token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			}
+		}
+		else {
+			return false;
+		}
 
-			if (token == "("){
+		if (token == "("){
+			if (type != FunctionPointer){
 				type = FunctionDefinition;
 				DEBUG std::cout << "function declaration " << name << std::endl;
+			}
+			else{
+				DEBUG std::cout << "function pointer " << name << std::endl;
+			}
 
-				//Todo.. handle arguments
-				skipBrackets(stream, "(", ")");
-				DEBUG std::cout << "function " << name << std::endl;
+			//Todo.. handle arguments
+			skipBrackets(stream, "(", ")");
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+			if (token == ";"){
+				return true;
+			}
+			else if (token == "{"){
+				skipBrackets(stream, "{", "}");
+			}
+			else{
+				throwError("expected ; or {");
+				return false;
+			}
+		}
+		else if (token == ";"){
+			DEBUG std::cout << "variable declaration " << name << std::endl;
+			return true; //done
+		}
+		else {
+			while (token == "," and stream){
 				token = Tokenizer::GetNextCTokenAfterSpace(stream);
-				if (token == ";"){
-					return true;
-				}
-				else if (token == "{"){
-					skipBrackets(stream, "{", "}");
-				}
-				else{
-					throwError("expected ; or {");
-					return false;
-				}
+				//Todo.. add these variables as well
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			}
-			else if (token == ";"){
-				DEBUG std::cout << "variable declaration " << name << std::endl;
-				return true; //done
+			if (token == ";"){
+				return true;
 			}
-			else {
-				while (token == "," and stream){
-					token = Tokenizer::GetNextCTokenAfterSpace(stream);
-					//Todo.. add these variables as well
-					token = Tokenizer::GetNextCTokenAfterSpace(stream);
-				}
-				if (token == ";"){
-					return true;
-				}
-				else{
-					throwError("expected ;");
-				}
+			else{
+				throwError("expected ;");
 			}
 		}
 		//declaration of something
 	}
 	else {
-		auto ret = findType(token);
 		return false;
 	}
 	return true;
