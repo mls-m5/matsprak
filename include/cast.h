@@ -22,6 +22,9 @@ public:
 
 	void loadHeaderFile(std::string fileName);
 	static class CAstContentBlock *CreateHeaderFromCommand(std::string headerName);
+
+protected:
+	void loadEnumContent(std::istream &stream);
 };
 
 class CAstContentBlock: public AstContentBlock {

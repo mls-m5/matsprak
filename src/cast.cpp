@@ -10,6 +10,7 @@
 #include "tokenizer.h"
 #include <sstream>
 #define DEBUG if (0)
+using namespace std;
 
 CAst::~CAst() {
 }
@@ -126,10 +127,24 @@ bool CAst::load(std::istream& stream) {
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 
 		if (token == "struct" or token == "union" or token == "enum"){
+			Ast::AstType typedefType;
 			DEBUG cout << token << " declaration through typedef" << endl;
+			if (token == "enum"){
+				typedefType = Ast::Enum;
+			} else if (token == "struct"){
+				typedefType = Ast::Struct;
+			}
+			else {
+				typedefType = Ast::Union;
+			}
 			token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			if (token == "{"){
-				skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+				if (typedefType == Ast::Enum){
+					loadEnumContent(stream);
+				}
+				else {
+					skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+				}
 
 				token = Tokenizer::GetNextCTokenAfterSpace(stream);
 				if (token.type == Token::Word){
@@ -140,14 +155,10 @@ bool CAst::load(std::istream& stream) {
 						if (parent){
 							auto ast = new CAst(parent);
 							ast->name = "<anonymous>";
-							if (token == "enum"){
-								ast->type = Enum;
-							}
-							else{
-								ast->type = Struct;
-							}
+							ast->type = typedefType;
+							dataTypePointer = ast;
 							((CAstContentBlock*)parent)->commands.push_back(ast);
-							DEBUG cout << "anonymous struct " << name << endl;
+							DEBUG cout << "anonymous struct/union/enum " << name << endl;
 						}
 
 						return true;
@@ -180,7 +191,12 @@ bool CAst::load(std::istream& stream) {
 					token = Tokenizer::GetNextCTokenAfterSpace(stream);
 				}
 				if (token == "{"){
-					skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+					if (type == Ast::Enum){
+						loadEnumContent(stream);
+					}
+					else {
+						skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+					}
 					DEBUG cout << "skipped content" << endl;
 					token = Tokenizer::GetNextCTokenAfterSpace(stream);
 				}
@@ -288,11 +304,15 @@ bool CAst::load(std::istream& stream) {
 		type = Ast::Enum;
 		if (token.type == Token::Word){
 			name = token;
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
 		}
 		else {
 			name = "<anonymous enum>";
 		}
-		skipBrackets(stream, "{", "}");
+
+//		skipBrackets(stream, "{", "}");
+		loadEnumContent(stream);
+
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 		if (token.type == Token::Word){
 			//Name of instantiation of enum
@@ -513,3 +533,27 @@ class CAstContentBlock* CAst::CreateHeaderFromCommand(std::string headerName) {
 	}
 }
 
+void CAst::loadEnumContent(std::istream& stream) {
+	auto blockParent = dynamic_cast<AstContentBlock*>(parent);
+	if (!blockParent){
+		skipBrackets(stream, "{", "}");
+		return;
+	}
+
+	auto token = Tokenizer::GetNextCTokenAfterSpace(stream);
+	while (token != "}"){
+		auto ast = new Ast(parent);
+		ast->name = token;
+		ast->type = Ast::VariableDeclaration;
+		ast->constExpression = true;
+		ast->dataTypePointer = this;
+		blockParent->commands.push_back(ast);
+		while (token != "}"){
+			token = Tokenizer::GetNextCTokenAfterSpace(stream);
+			if (token == ","){
+				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				break;
+			}
+		}
+	}
+}

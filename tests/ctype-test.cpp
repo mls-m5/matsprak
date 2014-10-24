@@ -184,15 +184,38 @@ TEST_CASE("typedef function pointers"){
 
 TEST_CASE("enum"){
 	{
-		CREATE_CAST("enum apa {bepa};");
+		CREATE_CAST_BLOCK("enum apa {bepa};");
 
-		ASSERT_EQ(ast.type, Ast::Enum);
+		ASSERT_EQ(ast.commands.size(), 2);
+		ASSERT_EQ(ast.commands[0]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[1]->type, Ast::Enum);
 	}
 
 	{
 		//Use enum just for declaration of constants
-		CREATE_CAST("enum {apa, bepa};");
-		ASSERT_EQ(ast.type, Ast::Enum);
+		CREATE_CAST_BLOCK("enum {apa, bepa};");
+		ASSERT_EQ(ast.commands.size(), 3);
+		ASSERT_EQ(ast.commands[0]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[1]->type, Ast::VariableDeclaration);
+		ASSERT(ast.findVariable("apa"), "could not find typedef constant apa");
+		ASSERT(ast.findVariable("bepa"), "could not find typedef constant bpa");
+		ASSERT_EQ(ast.commands[2]->type, Ast::Enum);
+		ASSERT_EQ(ast.commands[0]->dataTypePointer, ast.commands[2]);
+	}
+
+
+	{
+		//Use enum just for declaration of constants
+		CREATE_CAST_BLOCK("typedef enum {apa, bepa} cepa;");
+		ASSERT_EQ(ast.commands.size(), 4);
+		ASSERT_EQ(ast.commands[0]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[1]->type, Ast::VariableDeclaration);
+		ASSERT_EQ(ast.commands[2]->type, Ast::Enum);
+		ASSERT_EQ(ast.commands[3]->type, Ast::Typedef);
+		ASSERT_EQ(ast.commands[3]->dataTypePointer, ast.commands[2]);
+		ASSERT(ast.findVariable("apa"), "could not find typedef constant apa");
+		ASSERT(ast.findVariable("bepa"), "could not find typedef constant bpa");
+		ASSERT(ast.findType("cepa"), "could not find typedef cepa");
 	}
 }
 

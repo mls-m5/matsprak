@@ -36,6 +36,7 @@ public:
 		Typedef,
 		TypedefFunctionPointer,
 		Struct,
+		Union,
 		FunctionCall,
 		Enum,
 		UsingStatement,
