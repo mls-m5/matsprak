@@ -9,7 +9,7 @@
 
 #include "tokenizer.h"
 #include <sstream>
-#define DEBUG if (1)
+#define DEBUG if (0)
 
 CAst::~CAst() {
 }
@@ -178,10 +178,10 @@ bool CAst::load(std::istream& stream) {
 						dataTypePointer = ast;
 					}
 					token = Tokenizer::GetNextCTokenAfterSpace(stream);
-					if (token == "{"){
-						skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
-						DEBUG cout << "skipped content" << endl;
-					}
+				}
+				if (token == "{"){
+					skipBrackets(stream, "{", "}"); //Todo: Load struct to the anonymous type
+					DEBUG cout << "skipped content" << endl;
 					token = Tokenizer::GetNextCTokenAfterSpace(stream);
 				}
 				//continue to define type
@@ -224,9 +224,6 @@ bool CAst::load(std::istream& stream) {
 						skipBrackets(stream, "(", ")");
 						token = Tokenizer::GetNextCTokenAfterSpace(stream);
 						if (token == ";"){
-							if (name == "SDL_AudioFilter"){
-								cout << "här" << endl;
-							}
 							DEBUG std::cout << "typedef function pointer " << name << std::endl;
 							return true;
 						}
@@ -289,7 +286,12 @@ bool CAst::load(std::istream& stream) {
 	else if (token == "enum"){
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 		type = Ast::Enum;
-		name = token;
+		if (token.type == Token::Word){
+			name = token;
+		}
+		else {
+			name = "<anonymous enum>";
+		}
 		skipBrackets(stream, "{", "}");
 		token = Tokenizer::GetNextCTokenAfterSpace(stream);
 		if (token.type == Token::Word){

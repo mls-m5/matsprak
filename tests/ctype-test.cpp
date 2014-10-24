@@ -129,20 +129,37 @@ TEST_CASE("typedef function"){
 }
 
 TEST_CASE("load header"){
-	auto ast = CAst::CreateHeaderFromCommand("#include <stdio.h>\n"
-			"#include <SDL2/SDL.h>\n");
+	{
+		auto ast = CAst::CreateHeaderFromCommand("#include <stdio.h>\n");
 
-	ASSERT(ast, "no header created");
+		ASSERT(ast, "no header created");
 
-	//Kind of in the beginning
-	ASSERT(ast->findType("int"), "int not defined, something is strange");
-	ASSERT(ast->findType("_IO_FILE"), "type not defined");
+		//Kind of in the beginning
+		ASSERT(ast->findType("int"), "int not defined, something is strange");
+		ASSERT(ast->findType("_IO_FILE"), "type not defined");
 
-	auto ret = ast->findFunction("printf");
+		auto ret = ast->findFunction("printf");
 
-	ASSERT(ret, "printf was not found");
+		ASSERT(ret, "printf was not found");
+	}
+}
 
-	return 0;
+TEST_CASE("load SDL2 header"){
+	{
+		auto ast = CAst::CreateHeaderFromCommand("#include <SDL2/SDL.h>\n");
+
+		ASSERT(ast, "no header created");
+
+		//Kind of in the beginning
+		ASSERT(ast->findType("int"), "int not defined, something is strange");
+		ASSERT(ast->findType("_IO_FILE"), "type not defined");
+
+		auto ret = ast->findFunction("SDL_Quit");
+		//SDL_Quit is the last function in the file btw
+
+		ASSERT(ret, "SDL_Quit was not found");
+	}
+
 }
 
 TEST_CASE("typedef function pointers"){
@@ -163,8 +180,20 @@ TEST_CASE("typedef function pointers"){
 		ASSERT_EQ(ast.dataTypePointer->name, "int");
 		ASSERT_EQ(ast.name, "funcname");
 	}
+}
 
-	return 0;
+TEST_CASE("enum"){
+	{
+		CREATE_CAST("enum apa {bepa};");
+
+		ASSERT_EQ(ast.type, Ast::Enum);
+	}
+
+	{
+		//Use enum just for declaration of constants
+		CREATE_CAST("enum {apa, bepa};");
+		ASSERT_EQ(ast.type, Ast::Enum);
+	}
 }
 
 TEST_CASE("skip preprocessor commands"){
@@ -175,10 +204,7 @@ TEST_CASE("skip preprocessor commands"){
 	ast.load(ss);
 	auto ret = ast.findVariable("bepa");
 	ASSERT(ret, "något fel.. variabeln not declared");
-
-	return 0;
 }
-
 
 TEST_CASE("const expressions"){
 	CREATE_CAST("const int apa;");
@@ -186,8 +212,6 @@ TEST_CASE("const expressions"){
 	auto ret = ast.findVariable("apa");
 	ASSERT(ret, "apa is not defined");
 	ASSERT(ret->constExpression, "variable is not const");
-	return 0;
-
 }
 
 TEST_CASE("array expression"){
@@ -196,7 +220,6 @@ TEST_CASE("array expression"){
 	auto ret = ast.findVariable("apa");
 	ASSERT(ret, "apa is not defined");
 	ASSERT_EQ(ret->pointerDepth, 1);
-	return 0;
 }
 
 
@@ -251,8 +274,6 @@ TEST_CASE("struct test"){
 		ASSERT_EQ(ast.commands[1]->type, Ast::Typedef);
 		ASSERT_EQ(ast.commands[1]->name, "apa");
 	}
-
-	return 0;
 }
 
 TEST_SUIT_END

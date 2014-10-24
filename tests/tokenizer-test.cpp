@@ -25,13 +25,9 @@ TEST_CASE("new line test"){
 
 	auto tok2 = tokenizer.getNextToken(ss2);
 	ASSERT_EQ(tok2.type, Token::SpaceWithNewline);
-
-	return 0;
 }
 
 TEST_CASE("load file"){
-
-	return 0;
 }
 
 

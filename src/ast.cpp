@@ -49,9 +49,9 @@ public:
 	}
 } _initializer;
 
-void intent(int level){
+void intent(std::ostream &stream, int level){
 	for (int i = 0; i < level; ++i){
-		cout << "     ";
+		stream << "     ";
 	}
 }
 
@@ -277,7 +277,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 				cout << "error: datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
 				return;
 			}
-			intent(level);
+			intent(stream, level);
 			stream << dataTypePointer->name << " " << name << ";" << std::endl;
 			break;
 		case FunctionDefinition:
@@ -307,6 +307,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 			}
 
 			if (saveTarget == Source){
+				stream << endl;
 				if (!suppressReturnType){
 					stream << dataTypePointer->name << " ";
 				}
@@ -319,7 +320,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 				stream << "}" << endl;
 			}
 			else {
-				intent(level);
+				intent(stream, level);
 				if (!suppressReturnType){
 					stream << dataTypePointer->name << " ";
 				}
@@ -332,7 +333,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 		case FunctionCall:
 
 			if (dataTypePointer){
-				intent(level);
+				intent(stream, level);
 				if (content){
 					stream << dataTypePointer->name << "(";
 					content->save(stream, saveTarget, level);
@@ -344,7 +345,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 
 			}
 			else{
-				intent(level);
+				intent(stream, level);
 				cout << "undefined function" << endl;
 			}
 
@@ -352,7 +353,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 
 		case Assignment:
 
-			intent(level);
+			intent(stream, level);
 			if (content){
 				content->save(stream, saveTarget, level);
 				stream << ";" << endl;
@@ -616,6 +617,7 @@ std::string AstContentBlock::getNameSpace() {
 void Ast::printClassHeader(std::ostream& stream) {
 //	stream << "#pragma once" << endl;
 	if (parent){
+		stream << endl;
 		stream << "class " << parent->name << "{" << endl;
 		stream << "public:" << endl;
 	}

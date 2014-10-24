@@ -16,6 +16,7 @@
 typedef int (*testFunction)();
 
 extern std::map<std::string, testFunction> testMap;
+extern int test_result;
 
 inline int runTests(){
 	using std::cout;
@@ -27,7 +28,9 @@ inline int runTests(){
 
 	for (auto it: testMap){
 		cout << "--- running test " << it.first << " ---" << endl;
-		if (it.second()){
+		test_result = 0;
+		it.second();
+		if (test_result){
 			failed = 1;
 			cout << " --> failed" << endl << endl;
 			numFailed ++;
@@ -52,7 +55,7 @@ inline int runTests(){
 	return failed;
 }
 
-#define TEST_SUIT_BEGIN  std::map<std::string, int(*)()> testMap; void initTests(){
+#define TEST_SUIT_BEGIN  std::map<std::string, int(*)()> testMap; int test_result; void initTests(){
 
 //Remember to return 0 on success!!!
 #define TEST_CASE(name) ; testMap[name] = []() -> int
@@ -60,17 +63,17 @@ inline int runTests(){
 #define TEST_SUIT_END ; } int main() { initTests(); return runTests(); }
 
 #define PRINT_INFO std::cout << __FILE__ << ":" << __LINE__ << ": " ;
-#define ASSERT(x, error) if (!(x)) { PRINT_INFO; std::cout << #x << ": " << error << std::endl; return 1; }
-#define ASSERT_EQ(x, y) if ((x != y)) { PRINT_INFO; std::cout << #x << " = " << x << \
-	" is not equal to "	<< #y << " = " << y << std::endl; return 1; }
+#define ASSERT(x, error) if (!(x)) { PRINT_INFO; test_result ++; std::cout << #x << ": " << error << std::endl; return 1; }
+#define ASSERT_EQ(x, y) if ((x != y)) { PRINT_INFO; test_result ++; std::cout << #x << " = " << x << \
+	" is not equal to "	<< #y << " = " << y << std::endl; test_result ++; return 1; }
 #define ASSERT_NE(x, y) if ((x == y)) { PRINT_INFO; std::cout << #x << " = " << x << \
-	" is equal to "	<< #y << " = " << y << std::endl; return 1; }
+	" is equal to "	<< #y << " = " << y << std::endl; test_result ++; return 1; }
 
 #define ASSERT_GT(x, y) if (!(x > y)) { PRINT_INFO; std::cout << #x << " = " << x << \
-	" is not greater than "	<< #y << " = " << y << std::endl; return 1; }
+	" is not greater than "	<< #y << " = " << y << std::endl; test_result ++; return 1; }
 
 #define ASSERT_LT(x, y) if (!(x < y)) { PRINT_INFO; std::cout << #x << " = " << x << \
-	" is not less than "	<< #y << " = " << y << std::endl; return 1; }
+	" is not less than "	<< #y << " = " << y << std::endl; test_result ++; return 1; }
 
-#define ERROR(error) PRINT_INFO; std::cout << error << std::endl; return 1;
+#define ERROR(error) PRINT_INFO; std::cout << error << std::endl; test_result ++; return 1;
 

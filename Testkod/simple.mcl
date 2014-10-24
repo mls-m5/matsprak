@@ -7,7 +7,8 @@ int b = 3;
 TestKlass klass;
 
 function prutt(char *message)
-	printf message
+	//printf message
+	printf "heej! pruutttt.. ojsan.."
 end function
 
 function init()
@@ -18,18 +19,18 @@ function init()
 end function
 
 function destroy()
-	call bepa
+	call prutt
 end function
 
 
 
 function on_load()
-	prutt "pruuuut"
-	SDL_Init
+	//prutt "pruuuut"
+	SDL_Init 0
 end function
 	
 function bepa
 	int c
 	
-	a = b + c
+	//a = b + c
 end function

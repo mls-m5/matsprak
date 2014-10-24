@@ -201,16 +201,25 @@ Token Tokenizer::GetNextCToken(std::istream& stream) {
 				ss << line;
 				return Token(ss.str(), Token::PreprocessorCommand);
 			}
-			else if(specialCharacters.find(c) != string::npos && stream){
-				if (c == '/'){
-					//possible comment
-					if (stream.peek() == '/' or stream.peek() == '*'){
-						mode = Token::Space;
-						stream.unget();
-						continue;
-					}
+			if (c == '/'){
+				//possible comment
+				if (stream.peek() == '/' or stream.peek() == '*'){
+					mode = Token::Space;
+					stream.unget();
+					continue;
 				}
-
+			}
+			if (c == '\''){
+				c = stream.get();
+				if (c == '\''){
+					return Token("", Token::Char);
+				}
+				if (stream.get() == '\''){
+					char tmp[2] = {c, 0};
+					return Token(tmp, Token::Char);
+				}
+			}
+			else if(specialCharacters.find(c) != string::npos && stream){
 				mode = Token::SpacedOutCharacter;
 				ss.put(c);
 				return Token(ss.str(), Token::SpacedOutCharacter);
