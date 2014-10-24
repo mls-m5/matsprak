@@ -337,6 +337,8 @@ bool CAst::load(std::istream& stream) {
 		}
 		dataTypePointer = tmp;
 
+		doAnotherTime:
+
 		while (token == "*" and stream){
 			token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			pointerDepth ++;
@@ -409,9 +411,24 @@ bool CAst::load(std::istream& stream) {
 		}
 		else {
 			while (token == "," and stream){
-				token = Tokenizer::GetNextCTokenAfterSpace(stream);
-				//Todo.. add these variables as well
-				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+				auto blockParent = dynamic_cast<AstContentBlock*> (parent);
+				if (blockParent){
+					auto ast = new CAst(parent);
+					ast->type = type;
+					ast->name = name;
+					ast->pointerDepth = pointerDepth;
+					ast->constExpression = constExpression;
+					ast->dataTypePointer = dataTypePointer;
+					ast->staticExpression = staticExpression;
+					blockParent->commands.push_back(ast);
+
+					pointerDepth = 0;
+					token = Tokenizer::GetNextCTokenAfterSpace(stream);
+					goto doAnotherTime;
+				}
+//				token = Tokenizer::GetNextCTokenAfterSpace(stream);
+//				//Todo.. add these variables as well
+//				token = Tokenizer::GetNextCTokenAfterSpace(stream);
 			}
 			if (token == ";"){
 				return true;
