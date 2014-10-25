@@ -87,26 +87,30 @@ TEST_CASE("command type test"){
 	return 0;
 }
 
-TEST_CASE("load class folder"){
-	Ast::LoadClassFolder(".");
-	auto ret = Ast::FindType("TestKlass");
-
-	ASSERT(ret, "type not found?");
-
-	return 0;
-}
+//TEST_CASE("load class folder"){
+//	Ast::LoadClassFolder(".");
+//	auto ret = Ast::FindType("TestKlass");
+//
+//	ASSERT(ret, "type not found?");
+//
+//	return 0;
+//}
 
 TEST_CASE("evaluate expression"){
 	AstContentBlock ast(0);
 	istringstream ss("int x\n"
 			"int y\n"
-			"int z\n"
-			"z = x + y * z ^ 2\n");
+			"static int z\n"
+			"z = x + y\n"
+			"z = x + y * z ^ 2\n"
+			"int w = x + y + z\n");
 	ast.load(ss);
 	ast.save(cout, Ast::Header, 0);
 
-	ASSERT_EQ(ast.commands.size(), 4);
+	ASSERT_EQ(ast.commands.size(), 6);
 	ASSERT_EQ(ast.commands[3]->type, Ast::Assignment);
+	ASSERT_EQ(ast.commands[4]->type, Ast::Assignment);
+	ASSERT(ast.commands[2]->staticExpression, "z should be static");
 
 	return 0;
 }
@@ -126,7 +130,7 @@ TEST_CASE("call SDL_Init"){
 	AstContentBlock ast(0);
 	istringstream ss("include SDL2.SDL\n"
 			"function apa()\n"
-			"call SDL_Init\n"
+			"call SDL_Init SDL_INIT_VIDEO\n"
 			"end function\n");
 	ast.load(ss);
 
@@ -138,7 +142,7 @@ TEST_CASE("forward declared functions"){
 			"call bepa\n"
 			"end function \n"
 			"function bepa()\n"
-			"end function()");
+			"end function()\n");
 
 	AstContentBlock ast(0);
 	ast.load(ss);

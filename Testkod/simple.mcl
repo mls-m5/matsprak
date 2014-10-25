@@ -2,8 +2,9 @@
 include stdio
 include SDL2.SDL
 
-int a = 0;
-int b = 3;
+int a = 0
+int b = 3
+static int c = 3
 TestKlass klass;
 
 function prutt(char *message)
@@ -22,11 +23,15 @@ function destroy()
 	call prutt
 end function
 
+static function int main()
+
+end function
+
 
 
 function on_load()
 	//prutt "pruuuut"
-	SDL_Init 0
+	SDL_Init SDL_INIT_VIDEO
 end function
 	
 function bepa

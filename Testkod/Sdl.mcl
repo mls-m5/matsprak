@@ -1,0 +1,9 @@
+
+
+static function main(list<string> args)
+	SDL_INIT SDL_INIT_VIDEO
+	auto mainwindow = SDL_CreateWindow("matsprak SDL", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 512, 512, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+
+
+	auto maincontext = SDL_GL_CreateContext(mainwindow);
+end function

@@ -85,7 +85,13 @@ bool Ast::load(std::istream& stream) {
 	if (!stream){
 		return false; //end of stream
 	}
-	else if (ret == "end"){
+
+	if (ret == "static"){
+		staticExpression = true;
+		ret = tokenizer.GetNextCTokenAfterSpace(stream);
+	}
+
+	if (ret == "end"){
 		ret = tokenizer.getNextToken(stream);
 		if (ret.type == Token::SpaceWithNewline){
 			return false; //end of statement
@@ -212,7 +218,22 @@ bool Ast::load(std::istream& stream) {
 		name = ret;
 		type = VariableDeclaration;
 		dataTypePointer = tmp;
-		tokenizer.SkipSpace(stream, true);
+		ret = Tokenizer::GetNextToken(stream);
+		if (ret.type == Token::SpaceWithNewline){
+			return true;
+		}
+		if (ret.type == Token::Space){
+			ret = Tokenizer::GetNextTokenAfterSpace(stream);
+		}
+		if (ret == "="){
+			auto expression = new AstExpression(this);
+			expression->evaluate(stream);
+			setContent(expression);
+			DEBUG cout << "   ...initialized " << endl;
+		}
+		else {
+			throwError("expected newline or assignment (that is =)");
+		}
 	}
 	else if ((tmp = findFunction(ret))){
 		//Function call
@@ -234,6 +255,7 @@ bool Ast::load(std::istream& stream) {
 	}
 	else if ((tmp = findVariable(ret))){
 		type = Assignment;
+		DEBUG cout << "assignment " << ret << endl;
 		ret = Tokenizer::GetNextTokenAfterSpace(stream);
 		if (ret == "="){
 			auto astBinaryOperator = new AstBinaryOperator(this);
@@ -244,7 +266,6 @@ bool Ast::load(std::istream& stream) {
 			astBinaryOperator->setSecond(expression, true);
 			setContent(astBinaryOperator);
 		}
-		DEBUG cout << "assignment " << ret << endl;
 
 	}
 	else {
@@ -273,12 +294,50 @@ bool AstContentBlock::load(std::istream& stream) {
 void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 	switch (type) {
 		case VariableDeclaration:
-			if (!dataTypePointer){
-				cout << "error: datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
-				return;
+			if (staticExpression){
+				if (!dataTypePointer){
+					cout << "error: datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
+					return;
+				}
+//				intent(stream, level);
+				if (saveTarget == Header){
+					stream << "static ";
+				}
+				stream << dataTypePointer->name << " ";
+
+				if (saveTarget == Source){
+					if (parent){
+						stream << parent->getNameSpace() << "::";
+					}
+				}
+				stream << name;
+
+				if (saveTarget == Source){
+					if (content){
+						stream << " =";
+						content->save(stream, saveTarget, level);
+					}
+				}
+
+				stream << ";" << std::endl;
 			}
-			intent(stream, level);
-			stream << dataTypePointer->name << " " << name << ";" << std::endl;
+			else{
+				if (saveTarget == Header){
+					if (!dataTypePointer){
+						cout << "error: datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
+						return;
+					}
+					intent(stream, level);
+					stream << dataTypePointer->name << " " << name;
+
+					if (content){
+						stream << " =";
+						content->save(stream, saveTarget, level);
+					}
+
+					stream << ";" << std::endl;
+				}
+			}
 			break;
 		case FunctionDefinition:
 		{
@@ -314,13 +373,16 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 				stream << getNameSpace() << "::" <<  displayName << "(" << arguments << "){" << std::endl;
 
 				if (content){
-					content->save(stream, saveTarget, level);
+					content->save(stream, saveTarget, 0);
 				}
 
 				stream << "}" << endl;
 			}
 			else {
 				intent(stream, level);
+				if (staticExpression){
+					stream << "static ";
+				}
 				if (!suppressReturnType){
 					stream << dataTypePointer->name << " ";
 				}

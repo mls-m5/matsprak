@@ -101,7 +101,7 @@ Token Tokenizer::GetNextToken(std::istream &stream){
 				return Token(ss.str(), Token::SpacedOutCharacter);
 			}
 			else {
-				cout << "Tokenizer: funny token" << endl;
+				cout << "Tokenizer: funny token or end of file" << endl;
 			}
 		}
 		break;

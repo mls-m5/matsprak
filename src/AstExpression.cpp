@@ -43,7 +43,6 @@ void AstRawContent::save(std::ostream& stream, SaveTarget saveTarget,
 void AstBinaryOperator::save(std::ostream& stream, SaveTarget saveTarget,
 		int level) {
 	if (first and second){
-//		first->save(stream, saveTarget, level);
 		stream << first->name; //Todo: Fix this in some way
 		stream << " " << name << " ";
 		second->save(stream, saveTarget, level);
