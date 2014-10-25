@@ -9,7 +9,7 @@ TestKlass klass;
 
 function prutt(char *message)
 	//printf message
-	printf "heej! pruutttt.. ojsan.."
+	printf "heej! pruutttt.. ojsan..\n"
 end function
 
 function init()
@@ -24,7 +24,8 @@ function destroy()
 end function
 
 static function int main()
-
+	Simple simple
+	//simple.run();
 end function
 
 

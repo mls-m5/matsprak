@@ -275,7 +275,6 @@ bool Ast::load(std::istream& stream) {
 }
 
 bool AstContentBlock::load(std::istream& stream) {
-	type = Block;
 	Ast *command = new Ast(this);
 	while (command->load(stream)){
 		if (command->type == Include){
@@ -299,8 +298,8 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 					cout << "error: datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
 					return;
 				}
-//				intent(stream, level);
 				if (saveTarget == Header){
+					intent(stream, level);
 					stream << "static ";
 				}
 				stream << dataTypePointer->name << " ";
@@ -322,7 +321,14 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 				stream << ";" << std::endl;
 			}
 			else{
-				if (saveTarget == Header){
+				bool skip = false;
+				auto blockParent = dynamic_cast<AstContentBlock *>(parent);
+				if (blockParent){
+					if (blockParent->blockType != AstContentBlock::BlockOnly and saveTarget == Header){
+						skip = true;
+					}
+				}
+				if (!skip){
 					if (!dataTypePointer){
 						cout << "error: datatype pointer empty " << __FILE__ << ":" << __LINE__ << endl;
 						return;
@@ -448,7 +454,7 @@ void Ast::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 }
 
 Ast* Ast::findType(const std::string & name) {
-	if (type == Typedef or type == Struct or type == TypedefFunctionPointer){
+	if (type == Block or type == Typedef or type == Struct or type == Class or type == TypedefFunctionPointer){
 		if (this->name == name){
 			return this;
 		}
@@ -489,6 +495,9 @@ Ast* Ast::findVariable(const std::string& name) {
 void AstContentBlock::save(std::ostream& stream, SaveTarget saveTarget, int level) {
 	for (auto it: commands){
 		it->save(stream, saveTarget, level + 1);
+	}
+	if (blockType != BlockOnly and saveTarget == Header){
+		stream << "};" << endl << endl;
 	}
 }
 
@@ -563,17 +572,22 @@ Ast* Ast::LoadClassFile(const std::string& fileName) {
 			it = '.';
 		}
 	}
-	char previous = '\0';
-	for (auto it = className.begin(); it != className.end();){
-		if (*it == '.' && previous == '.'){
-			it = className.erase(it);
-			++it;
-		}
-		else {
-			++it;
-		}
-		previous = *it;
+//	char previous = '\0';
+//	for (auto it = className.begin(); it != className.end();){
+//		if (*it == '.' && previous == '.'){
+//			it = className.erase(it);
+//			++it;
+//		}
+//		else {
+//			++it;
+//		}
+//		previous = *it;
+//	}
+	auto lastPoint = className.rfind('.');
+	if (lastPoint != string::npos){
+		className = className.substr(lastPoint, className.size() - lastPoint);
 	}
+
 	if (className[0] == '.'){
 		className.erase(0, 1);
 	}
@@ -584,8 +598,10 @@ Ast* Ast::LoadClassFile(const std::string& fileName) {
 		auto header = new AstContent(ast);
 		header->type = ClassHeader;
 		ast->commands.push_back(header);
+		ast->name = className;
+		ast->type = Ast::Class;
 		if (ast->load(file)){
-			ast->name = className;
+			ast->blockType = AstContentBlock::ClassType;
 			types.push_back(ast);
 			DEBUG cout << "class " << className << " loaded" << endl;
 			return ast;
